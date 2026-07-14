@@ -1,19 +1,41 @@
-version: 1
-description: Approved business metrics for the Ask Data architecture.
+version: 2
+description: Approved business metrics for the Ask Data CRM sales dataset.
 rules:
 - Use only metrics defined in this file.
-- Do not change a metric formula without updating this file.
-- Use the date field assigned to the metric.
-- Do not mix metrics with incompatible grains without an approved aggregation rule.
+- Use the date field assigned to each metric.
 - Apply required filters and exclusions exactly as documented.
-- Handle division by zero safely.
-- Report data-quality warnings when required source values are missing.
-- Use canonical dimension values from the semantic layer.
+- Use canonical dimension values from resources/semantic_layer.md.
+- Handle division by zero safely with NULLIF.
+- Preserve the requested output grain.
+- Report material data-quality warnings.
+- Label proxy-based values as estimates rather than actual values.
 metrics:
+  opportunity_count:
+    label: Opportunity Count
+    business_definition: Number of distinct sales opportunities.
+    source:
+      table: sales_pipeline
+      identifier: opportunity_id
+    calculation_sql: COUNT(DISTINCT opportunity_id)
+    allowed_dimensions:
+    - product
+    - product_series
+    - account
+    - sector
+    - sales_agent
+    - manager
+    - regional_office
+    - deal_stage
+    - engage_month
+    - engage_quarter
+    - engage_year
+    - close_month
+    - close_quarter
+    - close_year
+    notes: Use DISTINCT after joins to avoid duplicate opportunity counts.
   won_revenue:
     label: Won Revenue
-    business_definition: Total sales revenue generated from opportunities that were
-      successfully won.
+    business_definition: Total sales revenue generated from opportunities that were successfully won.
     source:
       table: sales_pipeline
       value_field: close_value
@@ -24,75 +46,50 @@ metrics:
     - deal_stage = 'Won'
     allowed_dimensions:
     - product
+    - product_series
     - account
+    - sector
     - sales_agent
     - manager
     - regional_office
     - close_month
     - close_quarter
     - close_year
-    default_grain: one row per requested reporting dimension
-    exclusions:
-    - Prospecting
-    - Engaging
-    - Lost
     null_handling:
       close_value: Ignore null values.
       warning: Report won opportunities with null close_value as a data-quality warning.
-    notes: Do not confuse this metric with accounts.revenue, which represents customer
-      annual revenue.
+    notes: Do not confuse with accounts.revenue, which is customer annual revenue.
   won_opportunities:
     label: Won Opportunities
-    business_definition: Number of opportunities that reached the Won stage.
+    business_definition: Number of distinct opportunities that reached the Won stage.
     source:
       table: sales_pipeline
       identifier: opportunity_id
       status_field: deal_stage
       date_field: close_date
-    calculation_sql: COUNT(CASE WHEN deal_stage = 'Won' THEN opportunity_id END)
+    calculation_sql: COUNT(DISTINCT CASE WHEN deal_stage = 'Won' THEN opportunity_id END)
     required_filters:
     - deal_stage = 'Won'
-    allowed_dimensions:
-    - product
-    - account
-    - sales_agent
-    - manager
-    - regional_office
-    - close_month
-    - close_quarter
-    - close_year
-    null_handling:
-      opportunity_id: Exclude null identifiers.
   lost_opportunities:
     label: Lost Opportunities
-    business_definition: Number of opportunities that reached the Lost stage.
+    business_definition: Number of distinct opportunities that reached the Lost stage.
     source:
       table: sales_pipeline
       identifier: opportunity_id
       status_field: deal_stage
       date_field: close_date
-    calculation_sql: COUNT(CASE WHEN deal_stage = 'Lost' THEN opportunity_id END)
+    calculation_sql: COUNT(DISTINCT CASE WHEN deal_stage = 'Lost' THEN opportunity_id END)
     required_filters:
     - deal_stage = 'Lost'
-    allowed_dimensions:
-    - product
-    - account
-    - sales_agent
-    - manager
-    - regional_office
-    - close_month
-    - close_quarter
-    - close_year
   closed_opportunities:
     label: Closed Opportunities
-    business_definition: Number of opportunities that reached a final outcome.
+    business_definition: Number of distinct opportunities with a final outcome.
     source:
       table: sales_pipeline
       identifier: opportunity_id
       status_field: deal_stage
       date_field: close_date
-    calculation_sql: COUNT(CASE WHEN deal_stage IN ('Won', 'Lost') THEN opportunity_id
-      END)
+    calculation_sql: COUNT(DISTINCT CASE WHEN deal_stage IN ('Won', 'Lost') THEN opportunity_id END)
     included_stages:
     - Won
     - Lost
@@ -108,28 +105,18 @@ metrics:
       status_field: deal_stage
       date_field: close_date
     formula: won_opportunities / closed_opportunities
-    calculation_sql: 100.0 * COUNT(CASE WHEN deal_stage = 'Won' THEN opportunity_id
-      END) / NULLIF(COUNT(CASE WHEN deal_stage IN ('Won', 'Lost') THEN opportunity_id
-      END), 0)
+    calculation_sql: 100.0 * COUNT(DISTINCT CASE WHEN deal_stage = 'Won' THEN opportunity_id END) / NULLIF(COUNT(DISTINCT
+      CASE WHEN deal_stage IN ('Won', 'Lost') THEN opportunity_id END), 0)
     included_stages:
     - Won
     - Lost
     excluded_stages:
     - Prospecting
     - Engaging
-    allowed_dimensions:
-    - product
-    - account
-    - sales_agent
-    - manager
-    - regional_office
-    - close_month
-    - close_quarter
-    - close_year
     zero_handling: Return null when there are no closed opportunities.
   average_won_deal_size:
     label: Average Won Deal Size
-    business_definition: Average value of won opportunities.
+    business_definition: Average close value of won opportunities.
     source:
       table: sales_pipeline
       value_field: close_value
@@ -140,17 +127,48 @@ metrics:
     - deal_stage = 'Won'
     null_handling:
       close_value: Ignore null values.
+  average_sales_cycle_days:
+    label: Average Sales Cycle
+    business_definition: Average number of days between engagement and final deal resolution for closed opportunities.
+    source:
+      table: sales_pipeline
+      start_date_field: engage_date
+      end_date_field: close_date
+      status_field: deal_stage
+    calculation_sql: AVG(CASE WHEN deal_stage IN ('Won', 'Lost') AND engage_date IS NOT NULL AND close_date IS NOT
+      NULL THEN close_date - engage_date END)
+    required_filters:
+    - deal_stage IN ('Won', 'Lost')
+    - engage_date IS NOT NULL
+    - close_date IS NOT NULL
+    unit: days
+  discount_rate:
+    label: Discount Rate
+    business_definition: Percentage difference between product list price and actual won deal value.
+    source:
+      fact_table: sales_pipeline
+      dimension_table: products
+      actual_value_field: close_value
+      list_price_field: sales_price
+      status_field: deal_stage
+      date_field: close_date
+    calculation_sql: 100.0 * (1 - (close_value / NULLIF(sales_price, 0)))
+    required_filters:
+    - deal_stage = 'Won'
+    - close_value IS NOT NULL
+    - sales_price IS NOT NULL
+    required_join: sales_pipeline.product = products.product after canonical product mapping
+    grain: one row per won opportunity before aggregation
+    notes: Assumes one product per opportunity.
   open_opportunities:
     label: Open Opportunities
-    business_definition: Number of opportunities that have not yet reached a final
-      outcome.
+    business_definition: Number of distinct opportunities that have not reached a final outcome.
     source:
       table: sales_pipeline
       identifier: opportunity_id
       status_field: deal_stage
       date_field: engage_date
-    calculation_sql: COUNT(CASE WHEN deal_stage IN ('Prospecting', 'Engaging') THEN
-      opportunity_id END)
+    calculation_sql: COUNT(DISTINCT CASE WHEN deal_stage IN ('Prospecting', 'Engaging') THEN opportunity_id END)
     included_stages:
     - Prospecting
     - Engaging
@@ -159,43 +177,47 @@ metrics:
     - Lost
   open_pipeline_value:
     label: Open Pipeline Value
-    business_definition: Estimated value of open opportunities based on product sales
-      price.
+    business_definition: Estimated value of open opportunities using product list price as a proxy.
     source:
       fact_table: sales_pipeline
       dimension_table: products
       value_field: sales_price
       status_field: deal_stage
       date_field: engage_date
-    calculation_sql: SUM(CASE WHEN deal_stage IN ('Prospecting', 'Engaging') THEN
-      sales_price ELSE 0 END)
-    required_join:
-      left_table: sales_pipeline
-      right_table: products
-      condition: sales_pipeline.product = products.product
-      note: Apply canonical product mappings from the semantic layer before joining.
+    calculation_sql: SUM(CASE WHEN deal_stage IN ('Prospecting', 'Engaging') THEN sales_price ELSE 0 END)
+    required_join: sales_pipeline.product = products.product after canonical product mapping
     included_stages:
     - Prospecting
     - Engaging
-    notes: This is an estimated pipeline value and is not equivalent to won revenue.
+    output_label_rule: Always label as estimated open pipeline value.
+    notes: Open opportunities have null close_value, so actual open value is unavailable.
+  estimated_lost_opportunity_value:
+    label: Estimated Lost Opportunity Value
+    business_definition: Estimated value of lost opportunities using product list price as a proxy.
+    source:
+      fact_table: sales_pipeline
+      dimension_table: products
+      value_field: sales_price
+      status_field: deal_stage
+      date_field: close_date
+    calculation_sql: SUM(CASE WHEN deal_stage = 'Lost' THEN sales_price ELSE 0 END)
+    required_filters:
+    - deal_stage = 'Lost'
+    required_join: sales_pipeline.product = products.product after canonical product mapping
+    output_label_rule: Always label as estimated lost opportunity value.
+    notes: Do not use close_value because it is zero for lost opportunities.
   customer_annual_revenue:
     label: Customer Annual Revenue
-    business_definition: The annual company revenue of a customer account.
+    business_definition: The customer's own annual company revenue.
     source:
       table: accounts
       value_field: revenue
     calculation_sql: SUM(revenue)
-    grain: one row per account
-    allowed_dimensions:
-    - account
-    - sector
-    - office_location
-    - subsidiary_parent
-    clarification_rule: When the user asks only for revenue, distinguish between won
-      revenue and customer annual revenue.
+    grain: one row per account before aggregation
+    clarification_rule: When the user asks only for revenue, distinguish this from won_revenue.
 initial_business_question:
-  question: Which products generated the highest won revenue during the latest completed
-    year, and how did their win rates compare?
+  question: Which products generated the highest won revenue during the latest completed year, and how did their
+    win rates compare?
   required_metrics:
   - won_revenue
   - won_opportunities
@@ -213,8 +235,3 @@ initial_business_question:
   - won_opportunities
   - lost_opportunities
   - win_rate
-  required_exclusions:
-  - Exclude open opportunities from the win-rate denominator.
-  - Exclude lost opportunities from won revenue.
-  - Exclude null close_value values from revenue aggregation.
-  - Apply canonical product-name mappings before grouping or joining.

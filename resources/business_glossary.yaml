@@ -1,0 +1,213 @@
+version: 1
+
+description: >
+  Business terminology, synonyms, ambiguities, and clarification rules
+  for the Ask Data sales dataset.
+
+terms:
+
+  revenue:
+    definition: >
+      A general term that may refer to sales revenue from won opportunities
+      or to the annual revenue of a customer account.
+    possible_meanings:
+      - metric: won_revenue
+        label: Won Revenue
+        description: >
+          Revenue generated from opportunities where deal_stage is Won.
+      - metric: customer_annual_revenue
+        label: Customer Annual Revenue
+        description: >
+          The annual company revenue stored on the account record.
+    clarification_required: true
+    clarification_question: >
+      When you say revenue, do you mean won sales revenue or the customer's
+      annual company revenue?
+
+  won_revenue:
+    definition: >
+      Revenue generated from opportunities that reached the Won stage.
+    canonical_metric: won_revenue
+    synonyms:
+      - sales revenue
+      - closed-won revenue
+      - revenue from won deals
+      - booked sales value
+    clarification_required: false
+
+  customer_annual_revenue:
+    definition: >
+      The customer's own annual company revenue.
+    canonical_metric: customer_annual_revenue
+    synonyms:
+      - account revenue
+      - company revenue
+      - annual account revenue
+    clarification_required: false
+
+  customer:
+    definition: >
+      A company or organization represented by an account.
+    canonical_dimension: account
+    synonyms:
+      - client
+      - company
+      - account
+    clarification_required: false
+
+  product:
+    definition: >
+      A product associated with a sales opportunity.
+    canonical_dimension: product
+    synonyms:
+      - offering
+      - solution
+    clarification_required: false
+
+  sales_team:
+    definition: >
+      A general term that may refer to a sales agent, manager, or regional office.
+    possible_dimensions:
+      - sales_agent
+      - manager
+      - regional_office
+    clarification_required: true
+    clarification_question: >
+      Should the result be grouped by sales agent, manager, or regional office?
+
+  pipeline:
+    definition: >
+      Opportunities that have not yet reached a final outcome.
+    canonical_metric: open_opportunities
+    included_stages:
+      - Prospecting
+      - Engaging
+    excluded_stages:
+      - Won
+      - Lost
+    synonyms:
+      - open pipeline
+      - active opportunities
+      - open opportunities
+    clarification_required: false
+
+  open_pipeline_value:
+    definition: >
+      Estimated value of open opportunities based on the approved metric definition.
+    canonical_metric: open_pipeline_value
+    synonyms:
+      - pipeline value
+      - value of open deals
+      - active pipeline value
+    clarification_required: false
+
+  win_rate:
+    definition: >
+      The percentage of closed opportunities that were won.
+    canonical_metric: win_rate
+    synonyms:
+      - conversion rate
+      - close rate
+      - won rate
+    clarification_required: false
+    note: >
+      Open opportunities are excluded from the denominator.
+
+  closed_opportunity:
+    definition: >
+      An opportunity with a final outcome.
+    included_stages:
+      - Won
+      - Lost
+    synonyms:
+      - closed deal
+      - completed opportunity
+    clarification_required: false
+
+  open_opportunity:
+    definition: >
+      An opportunity that has not yet reached a final outcome.
+    included_stages:
+      - Prospecting
+      - Engaging
+    synonyms:
+      - active opportunity
+      - open deal
+    clarification_required: false
+
+  latest_completed_year:
+    definition: >
+      The most recent full calendar year available in the relevant metric date field.
+    synonyms:
+      - latest full year
+      - most recent completed year
+      - last complete year
+    clarification_required: false
+
+  top:
+    definition: >
+      Rank results from highest to lowest using the metric stated in the question.
+    default_sort_direction: descending
+    clarification_required: conditional
+    clarification_rule: >
+      Ask which metric to use only when the ranking metric is not clear from context.
+
+  bottom:
+    definition: >
+      Rank results from lowest to highest using the metric stated in the question.
+    default_sort_direction: ascending
+    clarification_required: conditional
+
+  best_product:
+    definition: >
+      An ambiguous ranking term that requires a specific performance metric.
+    possible_metrics:
+      - won_revenue
+      - win_rate
+      - won_opportunities
+      - average_won_deal_size
+    clarification_required: true
+    clarification_question: >
+      Should products be ranked by won revenue, win rate, won opportunities,
+      or average won deal size?
+
+  growth:
+    definition: >
+      Change in a metric between a current period and a comparison period.
+    required_elements:
+      - current_period
+      - comparison_period
+      - metric
+    clarification_required: conditional
+    clarification_rule: >
+      Ask for the comparison period if it is not specified and no approved default exists.
+
+  year_over_year:
+    definition: >
+      Compare a period with the equivalent calendar period in the previous year.
+    synonyms:
+      - YoY
+      - compared with last year
+      - versus previous year
+    clarification_required: false
+
+  month_over_month:
+    definition: >
+      Compare a month with the immediately preceding month.
+    synonyms:
+      - MoM
+      - compared with previous month
+    clarification_required: false
+
+canonical_values:
+
+  product:
+    mappings:
+      GTXPro: GTX Pro
+
+  deal_stage:
+    values:
+      - Prospecting
+      - Engaging
+      - Won
+      - Lost
