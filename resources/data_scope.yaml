@@ -1,0 +1,170 @@
+version: 1
+
+description: >
+  Defines the business domains, entities, metrics, dimensions, and question
+  types currently supported by the Ask Data dataset.
+
+supported_domains:
+
+  sales:
+    description: >
+      Sales opportunity, pipeline, revenue, conversion, product, account,
+      customer, and sales-team analysis.
+
+    entities:
+      - opportunity
+      - account
+      - customer
+      - product
+      - product_series
+      - sales_agent
+      - manager
+      - regional_office
+
+    metrics:
+      - opportunity_count
+      - won_revenue
+      - won_opportunities
+      - lost_opportunities
+      - closed_opportunities
+      - win_rate
+      - average_won_deal_size
+      - average_sales_cycle_days
+      - discount_rate
+      - open_opportunities
+      - open_pipeline_value
+      - estimated_lost_opportunity_value
+      - customer_annual_revenue
+
+    dimensions:
+      - deal_stage
+      - product
+      - product_series
+      - account
+      - sector
+      - office_location
+      - subsidiary_parent
+      - sales_agent
+      - manager
+      - regional_office
+      - engage_date
+      - close_date
+
+    supported_question_types:
+      - summary
+      - ranking
+      - comparison
+      - trend
+      - segmentation
+      - contribution
+      - performance_analysis
+
+unsupported_domains:
+
+  marketing:
+    reason: >
+      The current dataset does not contain marketing campaigns, lead sources,
+      marketing channels, advertisements, impressions, clicks, attribution,
+      campaign conversions, or marketing-spend data.
+
+  finance:
+    reason: >
+      The current dataset does not contain accounting, invoicing, payments,
+      costs, profit, budgets, expenses, or recognized-revenue data.
+
+  customer_support:
+    reason: >
+      The current dataset does not contain support tickets, cases, response
+      times, resolution times, or customer-satisfaction scores.
+
+  product_usage:
+    reason: >
+      The dataset contains products associated with sales opportunities, but
+      it does not contain customer product usage, feature adoption, activity,
+      engagement, or event data.
+
+  human_resources:
+    reason: >
+      The current dataset does not contain employee performance, compensation,
+      recruiting, attendance, training, or retention data.
+
+  inventory:
+    reason: >
+      The current dataset does not contain stock, warehouse, shipment,
+      supply-chain, procurement, or inventory data.
+
+partially_supported_topics:
+
+  customer:
+    supported:
+      - account attributes
+      - customer annual revenue
+      - sector
+      - office location
+      - parent and subsidiary relationships
+      - sales opportunities
+      - won revenue
+      - win rate
+
+    unsupported:
+      - customer satisfaction
+      - retention
+      - churn
+      - support activity
+      - product usage
+      - customer engagement
+
+  product:
+    supported:
+      - sales performance
+      - opportunity count
+      - won revenue
+      - win rate
+      - list price
+      - discount rate
+      - sales cycle
+
+    unsupported:
+      - product usage
+      - feature adoption
+      - product defects
+      - website engagement
+      - customer engagement
+
+  revenue:
+    supported:
+      - won sales revenue
+      - customer annual company revenue
+
+    unsupported:
+      - recognized revenue
+      - invoiced revenue
+      - collected revenue
+      - recurring revenue
+      - profit
+      - margin
+
+out_of_scope_response:
+  template: >
+    I cannot answer this question from the current dataset. The available data
+    is focused on sales opportunities, accounts, products, and sales teams,
+    and it does not currently contain data about {unsupported_subject}. I can
+    answer questions about sales revenue, pipeline, win rate, opportunities,
+    products, accounts, sales agents, managers, and regions.
+
+partial_scope_response:
+  template: >
+    Part of this question is supported, but the current dataset does not
+    contain data for {unsupported_part}. I can answer the supported part:
+    {supported_part}. Should I continue with only the supported analysis?
+
+rules:
+  - Do not generate SQL for unsupported domains.
+  - Do not infer unsupported data from related sales fields.
+  - Do not approximate unavailable metrics using unrelated columns.
+  - Do not treat missing metrics or missing data as zero.
+  - Do not answer from general knowledge when the user requested a dataset-based answer.
+  - Ask for clarification only when a term may map to a supported sales concept.
+  - Return an out-of-scope response immediately when the requested subject is clearly unsupported.
+  - For partially supported questions, ask the user before removing the unsupported part.
+  - Only pass fully supported and confirmed questions to the question-to-sql agent.
