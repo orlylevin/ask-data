@@ -1,7 +1,7 @@
 # Golden Dataset — question-to-sql Agent Evals
 
 Evaluates the `question-to-sql` subagent. Single-table questions first, then cross-table (JOIN) questions.
-Source of truth: `resources/semantic_layer.md`, `resources/metrics.md`.
+Source of truth: `resources/semantic_layer.md`, `resources/metrics.yaml`.
 
 **Assumption on date columns:** `engage_date` and `close_date` are loaded from CSV via pandas and may be stored as text unless the loader casts them. If DuckDB throws a type error on date arithmetic/comparison below, wrap the column in `CAST(col AS DATE)` first — the business logic stays the same either way. Once confirmed, remove this note.
 
@@ -68,7 +68,7 @@ Source of truth: `resources/semantic_layer.md`, `resources/metrics.md`.
 
 ---
 
-## 5. Sales Pipeline — Official KPIs (per metrics.md)
+## 5. Sales Pipeline — Official KPIs (per metrics.yaml)
 
 | ID | KPI | Question | Expected SQL | Precision note |
 | :--- | :--- | :--- | :--- | :--- |
@@ -78,7 +78,7 @@ Source of truth: `resources/semantic_layer.md`, `resources/metrics.md`.
 | K3 | Lost Opportunities | How many opportunities were Lost? | `SELECT COUNT(CASE WHEN deal_stage='Lost' THEN opportunity_id END) FROM sales_pipeline;` | — |
 | K4 | Closed Opportunities | How many reached a final outcome? | `SELECT COUNT(CASE WHEN deal_stage IN ('Won','Lost') THEN opportunity_id END) FROM sales_pipeline;` | — |
 | K5 | Win Rate | Overall win rate? | `SELECT 100.0*COUNT(CASE WHEN deal_stage='Won' THEN opportunity_id END)/NULLIF(COUNT(CASE WHEN deal_stage IN ('Won','Lost') THEN opportunity_id END),0) FROM sales_pipeline;` | Denominator = Won+Lost only, never include open deals |
-| K6 | Avg Won Deal Size | Average value of a Won deal? | `SELECT AVG(CASE WHEN deal_stage='Won' THEN close_value END) FROM sales_pipeline;` | `AVG` ignores NULL automatically — correct per metrics.md null_handling rule |
+| K6 | Avg Won Deal Size | Average value of a Won deal? | `SELECT AVG(CASE WHEN deal_stage='Won' THEN close_value END) FROM sales_pipeline;` | `AVG` ignores NULL automatically — correct per metrics.yaml null_handling rule |
 | K7 | Open Opportunities | How many are currently open? | `SELECT COUNT(CASE WHEN deal_stage IN ('Prospecting','Engaging') THEN opportunity_id END) FROM sales_pipeline;` | — |
 | K8 | Open Pipeline Value | Estimated value of open pipeline? | `SELECT SUM(CASE WHEN s.deal_stage IN ('Prospecting','Engaging') THEN p.sales_price ELSE 0 END) FROM sales_pipeline s JOIN products p ON s.product=p.product;` | Estimate only, based on list price; requires JOIN — close_value is NULL on open deals |
 | K9 | Win Rate by product | Win rate for each product? | `SELECT product, 100.0*COUNT(CASE WHEN deal_stage='Won' THEN opportunity_id END)/NULLIF(COUNT(CASE WHEN deal_stage IN ('Won','Lost') THEN opportunity_id END),0) AS win_rate FROM sales_pipeline GROUP BY product;` | Same denominator rule as K5 |
@@ -99,7 +99,7 @@ Source of truth: `resources/semantic_layer.md`, `resources/metrics.md`.
 | D3 | Total Won Revenue in 2017? | `SELECT SUM(close_value) FROM sales_pipeline WHERE deal_stage='Won' AND CAST(close_date AS DATE) BETWEEN '2017-01-01' AND '2017-12-31';` | Correct date field + stage filter combined |
 | D4 | Full date range covered by the data? | `SELECT MIN(CAST(engage_date AS DATE)) AS earliest_engage, MAX(CAST(close_date AS DATE)) AS latest_close FROM sales_pipeline;` | Basic coverage check before trusting other answers |
 | D5 | Are Prospecting deals with a missing engage_date a data error? | `SELECT COUNT(*) FROM sales_pipeline WHERE deal_stage='Prospecting' AND engage_date IS NULL;` | Should return ~500 and NOT be flagged as an error — documented as expected |
-| D6 | Products with highest Won Revenue in the latest completed year, and their win rate? | `WITH latest_year AS (SELECT MAX(EXTRACT(YEAR FROM CAST(close_date AS DATE))) AS yr FROM sales_pipeline WHERE deal_stage IN ('Won','Lost')) SELECT product, SUM(CASE WHEN deal_stage='Won' THEN close_value ELSE 0 END) AS won_revenue, COUNT(CASE WHEN deal_stage='Won' THEN opportunity_id END) AS won_opportunities, COUNT(CASE WHEN deal_stage='Lost' THEN opportunity_id END) AS lost_opportunities, 100.0*COUNT(CASE WHEN deal_stage='Won' THEN opportunity_id END)/NULLIF(COUNT(CASE WHEN deal_stage IN ('Won','Lost') THEN opportunity_id END),0) AS win_rate FROM sales_pipeline, latest_year WHERE EXTRACT(YEAR FROM CAST(close_date AS DATE)) = latest_year.yr GROUP BY product ORDER BY won_revenue DESC;` | **No hardcoded year** — resolved dynamically from the data. This is the `initial_business_question` in metrics.md — the single most important eval in this set. Required output columns per metrics.md: product, won_revenue, won_opportunities, lost_opportunities, win_rate |
+| D6 | Products with highest Won Revenue in the latest completed year, and their win rate? | `WITH latest_year AS (SELECT MAX(EXTRACT(YEAR FROM CAST(close_date AS DATE))) AS yr FROM sales_pipeline WHERE deal_stage IN ('Won','Lost')) SELECT product, SUM(CASE WHEN deal_stage='Won' THEN close_value ELSE 0 END) AS won_revenue, COUNT(CASE WHEN deal_stage='Won' THEN opportunity_id END) AS won_opportunities, COUNT(CASE WHEN deal_stage='Lost' THEN opportunity_id END) AS lost_opportunities, 100.0*COUNT(CASE WHEN deal_stage='Won' THEN opportunity_id END)/NULLIF(COUNT(CASE WHEN deal_stage IN ('Won','Lost') THEN opportunity_id END),0) AS win_rate FROM sales_pipeline, latest_year WHERE EXTRACT(YEAR FROM CAST(close_date AS DATE)) = latest_year.yr GROUP BY product ORDER BY won_revenue DESC;` | **No hardcoded year** — resolved dynamically from the data. This is the `initial_business_question` in metrics.yaml — the single most important eval in this set. Required output columns per metrics.yaml: product, won_revenue, won_opportunities, lost_opportunities, win_rate |
 | D7 | How many months of pipeline data do we have? | `SELECT COUNT(DISTINCT strftime('%Y-%m', CAST(engage_date AS DATE))) FROM sales_pipeline WHERE engage_date IS NOT NULL;` | Tests month-grain date truncation, a common building block for trend questions |
 
 ---
@@ -156,11 +156,24 @@ Combine with any question above to confirm the agent maps colloquial terms to ca
 
 ## Known Limitations of This Dataset
 
-- Not yet run against the live agent — SQL here is analyst-verified against `semantic_layer.md`/`metrics.md`, not yet execution-tested against the actual DuckDB file (`ask_data.duckdb`).
+- Not yet run against the live agent — SQL here is analyst-verified against `semantic_layer.md`/`metrics.yaml`, not yet execution-tested against the actual DuckDB file (`ask_data.duckdb`).
 - Assumes `engage_date`/`close_date` need explicit `CAST(... AS DATE)`; remove casts if the loader already stores them as native DATE type.
 - J12 is intentionally adv∂anced (ranking/window-function territory) — keep as a stretch goal, not a pass/fail blocker for early iterations.
-- This dataset will need updates if `metrics.md` or `semantic_layer.md` change — check the "Official KPIs" and "Dates" sections first, they are most tightly coupled to those source files.
+- This dataset will need updates if `metrics.yaml` or `semantic_layer.md` change — check the "Official KPIs" and "Dates" sections first, they are most tightly coupled to those source files.
 
 ---
 
 **Total evals: 56** (Accounts 11, Products 7, Sales Teams 5, Pipeline counts 8, KPIs 14, Dates 7, Traps 5, Joins 12, Terminology 10 cross-refs)
+
+## Scope-Control Evaluations
+
+| ID | Question | Expected behavior |
+|---|---|---|
+| SC1 | Which marketing campaign generated the most leads? | Return `OUT_OF_SCOPE`; do not generate SQL |
+| SC2 | What was our customer-support resolution time? | Return `OUT_OF_SCOPE`; do not generate SQL |
+| SC3 | Which products generated the most won revenue? | Continue to clarification and SQL |
+| SC4 | Which products had the most sales and website engagement? | Explain that sales is supported but website engagement is not; ask whether to continue with sales only |
+| SC5 | What was our profit last year? | Return `OUT_OF_SCOPE`; the dataset has won revenue but no costs or profit |
+| SC6 | Which campaign performed best? | Ask what campaign means or explain that marketing campaign data is unavailable |
+| SC7 | Which accounts had the highest annual company revenue? | Continue because customer annual revenue is supported |
+| SC8 | Which products had the highest customer usage? | Return `OUT_OF_SCOPE`; product sales are supported but product usage is not |

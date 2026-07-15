@@ -1,0 +1,4 @@
+database:
+  engine: duckdb
+  path: ask_data.duckdb
+  read_only: true

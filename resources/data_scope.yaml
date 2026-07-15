@@ -40,10 +40,14 @@ supported_domains:
       - deal_stage
       - product
       - product_series
+      - product_list_price
       - account
       - sector
       - office_location
       - subsidiary_parent
+      - year_established
+      - employees
+      - customer_annual_revenue
       - sales_agent
       - manager
       - regional_office
@@ -67,10 +71,12 @@ unsupported_domains:
       marketing channels, advertisements, impressions, clicks, attribution,
       campaign conversions, or marketing-spend data.
 
-  finance:
+  accounting_and_finance_operations:
     reason: >
       The current dataset does not contain accounting, invoicing, payments,
-      costs, profit, budgets, expenses, or recognized-revenue data.
+      costs, profit, budgets, expenses, recognized revenue, or cash collection
+      data. Won sales revenue and customer annual company revenue are supported
+      as sales and account metrics.
 
   customer_support:
     reason: >
