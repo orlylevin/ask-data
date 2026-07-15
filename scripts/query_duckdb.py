@@ -38,15 +38,27 @@ def validate_sql(sql: str) -> None:
         raise ValueError("SQL must start with SELECT or WITH")
 
 
+def read_sql(args: argparse.Namespace) -> str:
+    if args.sql is not None:
+        return args.sql
+    if args.sql_file is not None:
+        return args.sql_file.read_text(encoding="utf-8")
+    if not sys.stdin.isatty():
+        return sys.stdin.read()
+    raise ValueError("Provide SQL with --sql, --sql-file, or standard input")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sql-file", required=True, type=Path)
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--sql")
+    source.add_argument("--sql-file", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--config", default=Path("config/database.yaml"), type=Path)
     args = parser.parse_args()
 
     try:
-        sql = args.sql_file.read_text(encoding="utf-8")
+        sql = read_sql(args)
         validate_sql(sql)
         db_path = load_database_path(args.config)
         if not db_path.exists():
