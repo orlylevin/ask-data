@@ -321,6 +321,7 @@ Combine all outputs into a single JSON response.
     "score": 85,
     "explanation": "Based on 847 closed opportunities across all products"
   },
+  "sql_query": "SELECT ... FROM sales_pipeline WHERE ...",
   "kpis": [
     {
       "label": "Total Won Revenue",
@@ -365,6 +366,7 @@ For simple types, the JSON has populated `answer`, `result_type`, and
     "score": 95,
     "explanation": "Single aggregate value computed from 847 records"
   },
+  "sql_query": "SELECT SUM(...) FROM sales_pipeline WHERE ...",
   "kpis": [],
   "charts": [],
   "insights": [],
